@@ -28,7 +28,8 @@ CRGB leds[NUM_LEDS];
 #define UPDATES_PER_SECOND 100
 
 // AUDIO INPUT SETUP
-int audio = A0;
+int audio_channel_1 = A0;
+int audio_channel_2 = A1;
 
 // STANDARD VISUALIZER VARIABLES
 int loop_max = 0;
@@ -51,13 +52,41 @@ int sensitivity = 10; //default 1
 int palette_selector = 1;
 long maximum_reading = 0;
 int percent_effect = 0;
-int rate_of_fade = 25;
+int rate_of_fade = 30;
+
+// SET VISUAL STYLE HERE
+// Visual styles:
+// 0 = audio levels control number of LEDs displaying
+// 1 = audio levels control brightness of LEDs displaying
+int visual_style = 1;
 
 // TODO:
 // COLOUR PALETTES FOR DIFFERENT ARTISTS
-int artist_selected = 
-CRGB Vinnie1 ( 3, 252, 207 );
-CRGB Vinnie2 (
+int artist_selected = 0;
+// Artists: 
+// 0 - Vinnie
+// 1 - Cody
+// 2 - Ana
+
+//Setup of arrays for Artist Palette Nodes
+
+// palette_node data type
+typedef struct palette_node
+{
+  CRGB palette;
+  int node_position;
+};
+
+// initialization of vinnie's palette nodes
+palette_node vinnie_palette[2];
+
+
+/*
+CRGB vinnie_palette[2];
+vinnie_palette[0] = CRGB(3, 252, 207);
+vinnie_palette[1] = CRGB(223, 3, 252);
+int nodes_vinnie[2];*/
+
 /*
 byte[] vinnie_palette1 = [3, 252, 207];
 byte[] vinnie_palette2 = [223, 3, 252];
@@ -65,11 +94,9 @@ byte[] cody_palette = [0,0,0];
 byte[] ana_palette = [0,0,0];
 */
 
-// SET VISUAL STYLE HERE
-// Visual styles:
-// 0 = audio levels control number of LEDs displaying
-// 1 = audio levels control brightness of LEDs displaying
-int visual_style = 1;
+
+int palette_nodes = 0;
+int node_displacement = 0;
 
 void setup()
 {
@@ -83,9 +110,31 @@ void setup()
     leds[i] = CRGB(0, 0, 0);
   FastLED.show();
 
+  // Setting up artist's palette nodes
+  vinnie_palette[0].palette = new CRGB(3, 252, 207);
+  vinnie_palette[1].palette = new CRGB(223, 3, 252);
+
+  //Generate a number of nodes somewhere between 2-5?
+  palette_nodes = 2; //Will be set to 2 for testing
+  
+  //Randomly place those nodes across the strip
+  // TODO: add some randomness (+- 40%?) to the displacement
+  node_displacement = NUM_LEDS / palette_nodes+1; // Will set static displacement 
+
+  if (artist_selected = 0)
+  {
+    //Vinnie selected
+
+    for (int i = 0; i < palette_nodes; i++)
+    {
+      vinnie_palette[i].node_position = node_displacement*i;
+    }
+  }
+
   // SERIAL AND INPUT SETUP
   Serial.begin(115200);
-  pinMode(audio, INPUT);
+  pinMode(audio_channel_1, INPUT);
+  pinMode(audio_channel_2, INPUT);
   Serial.println("\nListening...");
 }
 
@@ -125,11 +174,17 @@ void rainbow(int brightness)
   FastLED.show(); 
 }
 
-void artistPalette(int brightness)
+void artistPalette(int brightness) {
+  
+  
+  //Node centres will have a the exact colour from the palettes
+  //Between nodes will have fade between the two colours
+}
 
 void loop()
 {
-  int audio_input = analogRead(audio)*sensitivity; // ADD x2 HERE FOR MORE SENSITIVITY  
+  int audio_input_channel_1 = analogRead(audio_channel_1)*sensitivity; 
+  int audio_input_channel_2 = analogRead(audio_channel_2)*sensitivity;  
 
   //TODO: Disable for live performance as this decreases frame rate
   if (debug_mode)
@@ -137,21 +192,24 @@ void loop()
     Serial.print("DEBUGGING: Visual style: ");
     Serial.print(visual_style);
     Serial.print(" | Serial read: ");
-    Serial.print(audio_input);
+    Serial.print(" CHANNEL 1: ");
+    Serial.print(audio_input_channel_1);
+    Serial.print(" CHANNEL 2: ");
+    Serial.print(audio_input_channel_2);
   
-    if (maximum_reading < audio_input) maximum_reading = audio_input;
+    if (maximum_reading < audio_input_channel_1) maximum_reading = audio_input_channel_1;
   
     Serial.print(" | Maximum read: ");
     Serial.print(maximum_reading);
   
-    percent_effect = audio_input / (maximum_reading/100);
+    percent_effect = audio_input_channel_1 / (maximum_reading/100);
   
     Serial.print(" | % effect: ");
     Serial.print(percent_effect);  
   }
 
 
-  if ((audio_input > 0) && (visual_style == 0))
+  if ((audio_input_channel_1 > 0) && (visual_style == 0))
   {
     // Visual style 0 will display a number of LEDs according to recorded audio input
     // Audio level (as a percentage of maximum recorded audio level) translated to LEDs
@@ -168,7 +226,7 @@ void loop()
       Serial.print(" | react: ");
       Serial.print(react);
     }
-  } else if ((audio_input > 0) && (visual_style == 1))
+  } else if ((audio_input_channel_1 > 0) && (visual_style == 1))
   {
     //Visual Style 1 will display ALL LEDs and adjust brightness according to audio input
     //100% of LEDs will be displaying
