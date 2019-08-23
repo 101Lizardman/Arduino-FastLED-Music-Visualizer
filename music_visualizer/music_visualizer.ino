@@ -42,7 +42,6 @@ long post_react = 0; // OLD SPIKE CONVERSION
 
 // RAINBOW WAVE SETTINGS
 int wheel_speed = 1; //default 3
-//int wheel_speed_division = 2;
 
 // VINCE'S ADDED VARIABLES
 long pre_brightness = 255;
