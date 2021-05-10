@@ -13,16 +13,27 @@
 // Added visual style
 // Added auto sensitivity checking
 
+// v0.4
+// Wow! My old commit messages were trash
+// Adding colour palettes because they don't seem to be doing shit
+// Setup default for dotstars
+
+
 
 //DISABLE FOR LIVE PERFORMANCE
+// NOTE: Removing all debug statements makes this program run TOO FAST and it gets weirdly buggy
+// Figure that out!
 bool debug_mode = true;
 
 // LED LIGHTING SETUP
-#define LED_PIN     6
-#define NUM_LEDS    60
+//#define LED_PIN     6
+#define DATA_PIN     11
+#define CLOCK_PIN     13
+#define NUM_LEDS    160
 #define BRIGHTNESS  64
-#define LED_TYPE    WS2811
-#define COLOR_ORDER GRB
+//#define LED_TYPE    WS2811
+#define LED_TYPE    DOTSTAR
+#define COLOR_ORDER BGR
 CRGB leds[NUM_LEDS];
 
 #define UPDATES_PER_SECOND 100
@@ -51,7 +62,7 @@ int sensitivity = 10; //default 1
 int palette_selector = 1;
 long maximum_reading = 0;
 int percent_effect = 0;
-int rate_of_fade = 30;
+int rate_of_fade = 100;
 
 // SET VISUAL STYLE HERE
 // Visual styles:
@@ -97,11 +108,27 @@ byte[] ana_palette = [0,0,0];
 int palette_nodes = 0;
 int node_displacement = 0;
 
+/*
+struct CRGB pinkArray[6] = {
+  CRGB(254,127,156),
+  CRGB(255,113,181),
+  CRGB(231,161,176),
+  CRGB(156,23,93),
+  CRGB(213,100,124),
+  CRGB(0,0,255)
+};
+*/
+
 void setup()
 {
   // LED LIGHTING SETUP
   delay( 3000 ); // power-up safety delay
-  FastLED.addLeds<LED_TYPE, LED_PIN, COLOR_ORDER>(leds, NUM_LEDS).setCorrection( TypicalLEDStrip );
+  //FastLED.addLeds<LED_TYPE, LED_PIN, COLOR_ORDER>(leds, NUM_LEDS).setCorrection( TypicalLEDStrip );
+
+  // For Dotstars:
+  FastLED.addLeds<LED_TYPE,DATA_PIN,CLOCK_PIN,COLOR_ORDER>(leds, NUM_LEDS).setCorrection(TypicalLEDStrip);
+  //FastLED.addLeds<LED_TYPE,DATA_PIN,CLOCK_PIN>(leds, NUM_LEDS).setCorrection(TypicalLEDStrip);
+  
   FastLED.setBrightness(  BRIGHTNESS );
 
   // CLEAR LEDS
@@ -144,17 +171,52 @@ CRGB Scroll(int pos) {
   CRGB color (0,0,0);
   if(pos < 85) {
     color.g = 0;
-    color.r = ((float)pos / 85.0f) * 255.0f;
+    color.r = (((float)pos / 85.0f) * 255.0f);
     color.b = (255 - color.r);
   } else if(pos < 170) {
-    color.g = ((float)(pos - 85) / 85.0f) * 255.0f;
+    color.g = (((float)(pos - 85) / 85.0f) * 255.0f);
     color.r = (255 - color.g);
     color.b = 0;
   } else if(pos < 256) {
-    color.b = ((float)(pos - 170) / 85.0f) * 255.0f;
+    color.b = (((float)(pos - 170) / 85.0f) * 255.0f);
     color.g = (255 - color.b);
     color.r = 1;
   }
+  return color;
+}
+
+CRGB ScrollFilter(int pos, CRGB filter, int filterVariation) {
+  CRGB color (0,0,0);
+  if(pos < 85) {
+    color.g = 0;
+    color.r = (((float)pos / 85.0f) * 255.0f);
+    color.b = (255 - color.r);
+  } else if(pos < 170) {
+    color.g = (((float)(pos - 85) / 85.0f) * 255.0f);
+    color.r = (255 - color.g) % filter.r;
+    color.b = 0;
+  } else if(pos < 256) {
+    color.b = (((float)(pos - 170) / 85.0f) * 255.0f);
+    color.g = (255 - color.b);
+    color.r = 1;
+  }
+
+  
+  if (color.r > filter.r + filterVariation) color.r = (filter.r + filterVariation);
+  if (color.r < filter.r - filterVariation) color.r = (filter.r - filterVariation);
+  
+  if (color.g > filter.g + filterVariation) color.g = (filter.g + filterVariation);
+  if (color.g < filter.g - filterVariation) color.g = (filter.g - filterVariation);
+  
+  if (color.b > filter.b + filterVariation) color.b = (filter.b + filterVariation);
+  if (color.b < filter.b - filterVariation) color.b = (filter.b - filterVariation);
+  
+  /*
+  color.red = filter.r;
+  color.green = filter.g;
+  color.blue = filter.b;
+  */
+  
   return color;
 }
 
@@ -165,11 +227,27 @@ CRGB Scroll(int pos) {
 void rainbow(int brightness)
 {
   for(int i = NUM_LEDS - 1; i >= 0; i--) {
-    if (i < react)
+    if (i < react) {
       leds[i] = Scroll((i * 256 / 50 + k) % 256);
-    //else
-      //leds[i] = CRGB(0, 0, 0);      
+    }
   }
+  FastLED.show(); 
+}
+
+void pinkDeviant(int brightness)
+{
+  int filterVariation = 75;
+  CRGB filterPink (217,1,102);
+  
+  for(int i = NUM_LEDS - 1; i >= 0; i--) {
+    if (i < react) {
+      int pos = (i * 256 / 50 + k) % 256;
+      CRGB color = ScrollFilter(pos, filterPink, filterVariation);
+      //CRGB pinkDeviant = DeviateColor(filterPink, deviantColor, deviateOffset); //filter to pink
+      leds[i] = color; 
+    }
+  }
+  
   FastLED.show(); 
 }
 
@@ -185,9 +263,13 @@ void loop()
   int audio_input_channel_1 = analogRead(audio_channel_1)*sensitivity; 
   int audio_input_channel_2 = analogRead(audio_channel_2)*sensitivity;  
 
+  if (maximum_reading < audio_input_channel_1) maximum_reading = audio_input_channel_1;
+  percent_effect = audio_input_channel_1 / (maximum_reading/100);
+
   //TODO: Disable for live performance as this decreases frame rate
   if (debug_mode)
   {
+    
     Serial.print("DEBUGGING: Visual style: ");
     Serial.print(visual_style);
     Serial.print(" | Serial read: ");
@@ -195,14 +277,8 @@ void loop()
     Serial.print(audio_input_channel_1);
     Serial.print(" CHANNEL 2: ");
     Serial.print(audio_input_channel_2);
-  
-    if (maximum_reading < audio_input_channel_1) maximum_reading = audio_input_channel_1;
-  
     Serial.print(" | Maximum read: ");
     Serial.print(maximum_reading);
-  
-    percent_effect = audio_input_channel_1 / (maximum_reading/100);
-  
     Serial.print(" | % effect: ");
     Serial.print(percent_effect);  
   }
@@ -224,6 +300,7 @@ void loop()
     {
       Serial.print(" | react: ");
       Serial.print(react);
+    
     }
   } else if ((audio_input_channel_1 > 0) && (visual_style == 1))
   {
@@ -240,8 +317,10 @@ void loop()
 
     if (debug_mode)
     {
+      
       Serial.print(" | brightness: ");
       Serial.print(brightness);
+      
     }
   }
 
@@ -250,8 +329,9 @@ void loop()
   //TODO: Very slow bleed between cycles
   fadeToBlackBy(leds, NUM_LEDS, rate_of_fade);
   FastLED.setBrightness(brightness);
-  rainbow(brightness); // APPLY COLOR
-
+  //rainbow(brightness); // APPLY COLOR
+  pinkDeviant(brightness);
+  
   //If debug printing, start a new line
   if (debug_mode) Serial.println();
 
